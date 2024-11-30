@@ -124,5 +124,8 @@ class DiskScheduler {
   size_t order = 0;
   std::priority_queue<std::pair<DiskRequest, size_t>, std::vector<std::pair<DiskRequest, size_t>>, CompareRequests>
       queue_requests_;
+  //scan optimization to access pages that are closely located,
+  //if the page_ids are the same, then the pages will be in the order 
+  //in which they were placed, because it is impossible to reorder reading/ writing
 };
 }  // namespace bustub

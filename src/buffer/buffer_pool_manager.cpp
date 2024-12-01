@@ -122,7 +122,21 @@ auto BufferPoolManager::Size() const -> size_t { return num_frames_; }
  *
  * @return The page ID of the newly allocated page.
  */
-auto BufferPoolManager::NewPage() -> page_id_t { UNIMPLEMENTED("TODO(P1): Add implementation."); }
+auto BufferPoolManager::NewPage() -> page_id_t {
+  bpm_latch_.get()->lock();
+  page_id_t result_page;
+  if (this->free_frames_.empty()){
+    result_page=next_page_id_;
+    next_page_id_++;
+    disk_scheduler_.get()->IncreaseDiskSpace
+  }
+  else{
+    result_page=free_frames_.front();
+    free_frames_.pop_front();
+  }
+  bpm_latch_.get()->unlock();
+  return result_page;
+ }
 
 /**
  * @brief Removes a page from the database, both on disk and in memory.
@@ -150,7 +164,21 @@ auto BufferPoolManager::NewPage() -> page_id_t { UNIMPLEMENTED("TODO(P1): Add im
  * @param page_id The page ID of the page we want to delete.
  * @return `false` if the page exists but could not be deleted, `true` if the page didn't exist or deletion succeeded.
  */
-auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool { UNIMPLEMENTED("TODO(P1): Add implementation."); }
+auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool { 
+  //TODO
+  bpm_latch_.get()->lock();
+  if (frame_descriptor_.find(page_id) != frame_descriptor_.end()) {
+    return true;
+  }
+  FrameHeader* frame = frame_descriptor_[page_id];
+  frame->rwlatch_.lock();
+  if (frame->pin_count_ > 0) {
+    return false;
+  }
+
+  bpm_latch_.get()->unlock();
+  return true;
+}
 
 /**
  * @brief Acquires an optional write-locked guard over a page of data. The user can specify an `AccessType` if needed.
@@ -192,7 +220,21 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool { UNIMPLEMENTED("T
  * returns `std::nullopt`, otherwise returns a `WritePageGuard` ensuring exclusive and mutable access to a page's data.
  */
 auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_type) -> std::optional<WritePageGuard> {
-  UNIMPLEMENTED("TODO(P1): Add implementation.");
+    this->bpm_latch_.get()->lock();
+    if(page_table_.find(page_id) == page_table_.end()) {
+      this->bpm_latch_.get()->unlock();
+      return std::nullopt;
+    }
+    std::shared_ptr<FrameHeader> frame = frame_table_[page_id];
+    frame->rwlatch_.lock();
+    if (frame->is_dirty_){
+      this->bpm_latch_.get()->unlock();
+      return std::nullopt;
+    }
+    WritePageGuard write_page_guard=WritePageGuard(page_id,frame,this->replacer_,this->bpm_latch_);
+    this->bpm_latch_.get()->unlock();
+    frame->rwlatch_.unlock();
+    return write_page_guard;
 }
 
 /**
@@ -328,7 +370,14 @@ void BufferPoolManager::FlushAllPages() { UNIMPLEMENTED("TODO(P1): Add implement
  * @return std::optional<size_t> The pin count if the page exists, otherwise `std::nullopt`.
  */
 auto BufferPoolManager::GetPinCount(page_id_t page_id) -> std::optional<size_t> {
-  UNIMPLEMENTED("TODO(P1): Add implementation.");
+  bpm_latch_.get()->lock();
+  if (page_table_.find(page_id) == page_table_.end()) {
+    bpm_latch_.get()->unlock();
+    return std::nullopt;
+  }
+  FrameHeader* frame = frame_table_[page_id];
+  bpm_latch_.get()->unlock();
+  return frame->pin_count_;
 }
 
 }  // namespace bustub

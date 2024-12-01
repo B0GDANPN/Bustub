@@ -144,6 +144,7 @@ class BufferPoolManager {
 
   /** @brief The page table that keeps track of the mapping between pages and buffer pool frames. */
   std::unordered_map<page_id_t, frame_id_t> page_table_;
+  std::unordered_map<frame_id_t, std::shared_ptr<FrameHeader>> frame_table_;
 
   /** @brief A list of free frames that do not hold any page's data. */
   std::list<frame_id_t> free_frames_;
@@ -171,4 +172,5 @@ class BufferPoolManager {
    * pointer to a `FrameHeader` that already has a page's data stored inside of it, or an index to said `FrameHeader`.
    */
 };
+
 }  // namespace bustub

@@ -26,11 +26,15 @@ namespace bustub {
  * @param replacer A shared pointer to the buffer pool manager's replacer.
  * @param bpm_latch A shared pointer to the buffer pool manager's latch.
  */
-ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame,
-                             std::shared_ptr<LRUKReplacer> replacer, std::shared_ptr<std::mutex> bpm_latch)
-    : page_id_(page_id), frame_(std::move(frame)), replacer_(std::move(replacer)), bpm_latch_(std::move(bpm_latch)) {
-  UNIMPLEMENTED("TODO(P1): Add implementation.");
+ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame, std::shared_ptr<LRUKReplacer> replacer, std::shared_ptr<std::mutex> bpm_latch)
+    : page_id_(page_id), 
+      frame_(std::move(frame)), 
+      replacer_(std::move(replacer)),
+      bpm_latch_(std::move(bpm_latch)),
+      is_valid_(true){
+  frame_->pin_count_++;
 }
+
 
 /**
  * @brief The move constructor for `ReadPageGuard`.
@@ -47,7 +51,14 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
  *
  * @param that The other page guard.
  */
-ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {}
+ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
+  BUSTUB_ASSERT(!that.is_valid_, "othet guard is valid");
+  page_id_ = that.page_id_;
+  frame_ = std::move(that.frame_);
+  replacer_ = std::move(that.replacer_);
+  bpm_latch_ = std::move(that.bpm_latch_);
+  is_valid_ = true;
+}
 
 /**
  * @brief The move assignment operator for `ReadPageGuard`.
@@ -126,8 +137,12 @@ ReadPageGuard::~ReadPageGuard() { Drop(); }
  */
 WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame,
                                std::shared_ptr<LRUKReplacer> replacer, std::shared_ptr<std::mutex> bpm_latch)
-    : page_id_(page_id), frame_(std::move(frame)), replacer_(std::move(replacer)), bpm_latch_(std::move(bpm_latch)) {
-  UNIMPLEMENTED("TODO(P1): Add implementation.");
+    : page_id_(page_id), 
+      frame_(std::move(frame)), 
+      replacer_(std::move(replacer)),
+      bpm_latch_(std::move(bpm_latch)),
+      is_valid_(true){
+  frame_->pin_count_++;
 }
 
 /**

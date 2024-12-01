@@ -26,14 +26,16 @@ auto LRUKReplacer::Evict() -> std::optional<frame_id_t> {
   frame_id_t frame;
   for (const auto &it_node : node_store_) {
     const LRUKNode &node = it_node.second;
-    if (!node.is_evictable_) continue;
+    if (!node.is_evictable_) {
+      continue;
+    }
 
     size_t tmp_distance;
-    if (node.history_.size() < node.k_)
+    if (node.history_.size() < node.k_) {
       tmp_distance = SIZE_MAX;
-    else
+    } else {
       tmp_distance = current_timestamp_ - node.history_.back();
-
+    }
     if (tmp_distance > max_distance) {
       max_distance = tmp_distance;
       frame = node.fid_;

@@ -53,12 +53,12 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
  */
 ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
   BUSTUB_ENSURE(!that.is_valid_, "other guard is valid");
+  is_valid_ = true;
+  that.is_valid_ = false;
   page_id_ = that.page_id_;
   frame_ = std::move(that.frame_);
   replacer_ = std::move(that.replacer_);
   bpm_latch_ = std::move(that.bpm_latch_);
-  is_valid_ = true;
-  that.is_valid_ = false;
 }
 
 /**
@@ -80,12 +80,12 @@ ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
  */
 auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
   BUSTUB_ENSURE(that.is_valid_, "other read guard is invalid");
+  is_valid_ = true;
+  that.is_valid_ = false;
   page_id_ = that.page_id_;
   frame_ = std::move(that.frame_);
   replacer_ = std::move(that.replacer_);
   bpm_latch_ = std::move(that.bpm_latch_);
-  is_valid_ = true;
-  that.is_valid_ = false;
   return *this;
 }
 
@@ -128,12 +128,11 @@ void ReadPageGuard::Drop() {
   if (!is_valid_) {
     return;
   }
-
+  is_valid_ = false;
   frame_.get()->pin_count_--;
-  if (frame_->pin_count_ == 0) {
+  if (frame_->pin_count_ == 0) { //need write to disk
     replacer_.get()->SetEvictable(frame_.get()->frame_id_, true);
   }
-  is_valid_ = false;
 }
 
 /** @brief The destructor for `ReadPageGuard`. This destructor simply calls `Drop()`. */
@@ -182,12 +181,12 @@ WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> f
  */
 WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {
   BUSTUB_ENSURE(that.is_valid_, "other write guard is valid");
+  is_valid_ = true;
+  that.is_valid_ = false;
   page_id_ = that.page_id_;
   frame_ = std::move(that.frame_);
   replacer_ = std::move(that.replacer_);
   bpm_latch_ = std::move(that.bpm_latch_);
-  is_valid_ = true;
-  that.is_valid_ = false;
 }
 
 /**
@@ -209,12 +208,12 @@ WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {
  */
 auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & {
   BUSTUB_ENSURE(that.is_valid_, "other write guard is invalid");
+  is_valid_ = true;
+  that.is_valid_ = false;
   page_id_ = that.page_id_;
   frame_ = std::move(that.frame_);
   replacer_ = std::move(that.replacer_);
   bpm_latch_ = std::move(that.bpm_latch_);
-  is_valid_ = true;
-  that.is_valid_ = false;
   return *this; 
 }
 
@@ -271,7 +270,6 @@ void WritePageGuard::Drop() {
     frame_.get()->is_dirty_ = true;
     replacer_.get()->SetEvictable(frame_.get()->frame_id_, true);
   }
-  is_valid_ = false;
 }
 
 /** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */

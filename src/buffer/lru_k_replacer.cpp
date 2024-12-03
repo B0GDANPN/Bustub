@@ -18,7 +18,7 @@ namespace bustub {
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
 
 auto LRUKReplacer::Evict() -> std::optional<frame_id_t> {
-  std::lock_guard<std::mutex> guard(latch_);
+  std::lock_guard<std::mutex> latch(latch_);
   if (curr_size_ == 0) {
     return std::nullopt;
   }
@@ -55,7 +55,7 @@ auto LRUKReplacer::Evict() -> std::optional<frame_id_t> {
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
-  std::lock_guard<std::mutex> guard(latch_);
+  std::lock_guard<std::mutex> latch(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) < replacer_size_, "frame_id out of range");
   if (node_store_.find(frame_id) == node_store_.end()) {
     LRUKNode node;
@@ -86,7 +86,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-  std::lock_guard<std::mutex> guard(latch_);
+  std::lock_guard<std::mutex> latch(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) < replacer_size_, "frame_id out of range");
   if (node_store_.find(frame_id) == node_store_.end()) {
     return;
@@ -104,7 +104,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 }
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
-  std::lock_guard<std::mutex> guard(latch_);
+  std::lock_guard<std::mutex> latch(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) < replacer_size_, "frame_id out of range");
   BUSTUB_ASSERT(node_store_.find(frame_id) != node_store_.end(), "frame_id not found in node_store");
   LRUKNode node = node_store_[frame_id];

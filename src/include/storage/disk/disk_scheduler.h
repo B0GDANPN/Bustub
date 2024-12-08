@@ -92,7 +92,10 @@ class DiskScheduler {
    *
    * @param pages The number of pages the caller wants the file used for storage to support.
    */
-  void IncreaseDiskSpace(size_t pages) { disk_manager_->IncreaseDiskSpace(pages); }
+  void IncreaseDiskSpace(size_t pages) 
+  { 
+    disk_manager_->IncreaseDiskSpace(pages);
+  }
 
   /**
    * @brief Deallocates a page on disk.

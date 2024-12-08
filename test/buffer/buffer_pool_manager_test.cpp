@@ -62,7 +62,7 @@ TEST(BufferPoolManagerTest, VeryBasicTest) {
   ASSERT_TRUE(bpm->DeletePage(pid));
 }
 
-TEST(BufferPoolManagerTest, DISABLED_PagePinEasyTest) {
+TEST(BufferPoolManagerTest, PagePinEasyTest) {
   auto disk_manager = std::make_shared<DiskManager>(db_fname);
   auto bpm = std::make_shared<BufferPoolManager>(2, disk_manager.get(), 5);
 
@@ -157,7 +157,7 @@ TEST(BufferPoolManagerTest, DISABLED_PagePinEasyTest) {
   remove(disk_manager->GetLogFileName());
 }
 
-TEST(BufferPoolManagerTest, DISABLED_PagePinMediumTest) {
+TEST(BufferPoolManagerTest, PagePinMediumTest) {
   auto disk_manager = std::make_shared<DiskManager>(db_fname);
   auto bpm = std::make_shared<BufferPoolManager>(FRAMES, disk_manager.get(), K_DIST);
 

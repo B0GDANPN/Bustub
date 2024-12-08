@@ -9,7 +9,6 @@
 // Copyright (c) 2015-2022, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
-
 #include "buffer/lru_k_replacer.h"
 #include "common/exception.h"
 
@@ -106,15 +105,16 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   std::lock_guard<std::mutex> latch(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) < replacer_size_, "frame_id out of range");
-  BUSTUB_ASSERT(node_store_.find(frame_id) != node_store_.end(), "frame_id not found in node_store");
-  LRUKNode node = node_store_[frame_id];
-  BUSTUB_ASSERT(node.is_evictable_, "frame_id is not evictable");
-  cache_deleted_pages.insert({current_timestamp_++, node});
-  curr_size_--;
-  if (cache_deleted_pages.size() > size_cache_deleted_pages_) {
-    cache_deleted_pages.erase(cache_deleted_pages.begin());
+  if (node_store_.find(frame_id) != node_store_.end()){
+    LRUKNode node = node_store_[frame_id];
+    BUSTUB_ASSERT(node.is_evictable_, "frame_id is not evictable");
+    cache_deleted_pages.insert({current_timestamp_++, node});
+    curr_size_--;
+    if (cache_deleted_pages.size() > size_cache_deleted_pages_) {
+      cache_deleted_pages.erase(cache_deleted_pages.begin());
+    }
+    node_store_.erase(frame_id);
   }
-  node_store_.erase(frame_id);
 }
 
 auto LRUKReplacer::Size() -> size_t { return curr_size_; }

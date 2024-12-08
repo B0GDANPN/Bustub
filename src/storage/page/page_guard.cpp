@@ -33,7 +33,6 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
       replacer_(std::move(replacer)),
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
-  frame_->rwlatch_.lock_shared();
   frame_->pin_count_++;
 }
 
@@ -53,7 +52,7 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
  * @param that The other page guard.
  */
 ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
-  BUSTUB_ENSURE(!that.is_valid_, "other read guard cons is valid");
+  BUSTUB_ENSURE(that.is_valid_, "other read guard cons is invalid");
   is_valid_ = true;
   that.is_valid_ = false;
   page_id_ = that.page_id_;
@@ -129,7 +128,6 @@ auto ReadPageGuard::IsDirty() const -> bool {
  * TODO(P1): Add implementation.
  */
 void ReadPageGuard::Drop() {
-  std::lock_guard<std::mutex> lock_guard(*bpm_latch_);
   if (!is_valid_) {
     return;
   }
@@ -138,7 +136,6 @@ void ReadPageGuard::Drop() {
   if (frame_->pin_count_ == 0) {  // need write to disk
     replacer_->SetEvictable(frame_->frame_id_, true);
   }
-  frame_->rwlatch_.unlock_shared();
 }
 
 /** @brief The destructor for `ReadPageGuard`. This destructor simply calls `Drop()`. */
@@ -167,7 +164,6 @@ WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> f
       replacer_(std::move(replacer)),
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
-  frame_->rwlatch_.lock();
   frame_->pin_count_++;
 }
 
@@ -271,7 +267,6 @@ auto WritePageGuard::IsDirty() const -> bool {
  * TODO(P1): Add implementation.
  */
 void WritePageGuard::Drop() {
-  std::lock_guard<std::mutex> lock_guard(*bpm_latch_);
   if (!is_valid_) {
     return;
   }
@@ -281,10 +276,12 @@ void WritePageGuard::Drop() {
     frame_->is_dirty_ = true;
     replacer_->SetEvictable(frame_->frame_id_, true);
   }
-  frame_->rwlatch_.unlock();
+  
 }
 
 /** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */
-WritePageGuard::~WritePageGuard() { Drop(); }
+WritePageGuard::~WritePageGuard() {
+   Drop();
+}
 
 }  // namespace bustub

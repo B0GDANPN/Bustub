@@ -33,6 +33,7 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
       replacer_(std::move(replacer)),
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
+  frame_.get()->rwlatch_.lock_shared();
   frame_->pin_count_++;
 }
 
@@ -164,6 +165,7 @@ WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> f
       replacer_(std::move(replacer)),
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
+  frame_.get()->rwlatch_.lock();
   frame_->pin_count_++;
 }
 

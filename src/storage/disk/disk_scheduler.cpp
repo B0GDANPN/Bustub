@@ -40,18 +40,15 @@ void DiskScheduler::Schedule(DiskRequest r) {
 }
 
 void DiskScheduler::StartWorkerThread() {
-  while (true) {
-    std::optional<DiskRequest> request = request_queue_.Get();
-    if (!request.has_value()) {
-      break;
-    }
-
+  std::optional<DiskRequest> request = request_queue_.Get();
+  while (request.has_value()) {
     if (!request->is_write_) {
       disk_manager_->ReadPage(request->page_id_, request->data_);
     } else {
       disk_manager_->WritePage(request->page_id_, request->data_);
     }
     request->callback_.set_value(true);
+    request = request_queue_.Get();
   }
 }
 

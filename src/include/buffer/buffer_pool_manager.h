@@ -30,7 +30,12 @@ namespace bustub {
 class BufferPoolManager;
 class ReadPageGuard;
 class WritePageGuard;
-
+template <typename A, typename B>
+class ThreadSafeMapWrapper;
+template <typename A>
+class ThreadSafeVectorWrapper;
+template <typename A>
+class ThreadSafeListWrapper;
 /**
  * @brief A helper class for `BufferPoolManager` that manages a frame of memory and related metadata.
  *
@@ -111,10 +116,15 @@ template <typename A, typename B>
 class ThreadSafeMapWrapper {
 
 public:
-  ThreadSafeMapWrapper(const std::unordered_map<A, B>& map,std::shared_ptr<std::mutex> latch) : 
-  map_(map),
-  latch_(latch) {}
-
+  ThreadSafeMapWrapper(std::unordered_map<A, B>& map,std::shared_ptr<std::mutex> latch) : map_(map), latch_(latch) {}
+  ThreadSafeMapWrapper(const ThreadSafeMapWrapper& other);
+  ThreadSafeMapWrapper& operator=(const ThreadSafeMapWrapper& other){
+    if (this != &other) {
+      map_ = other.map_;
+      latch_ = other.latch_;
+    }
+    return *this;
+  };
   void set(const A& key, const B& value) {
     std::scoped_lock latch(*latch_);
     map_.at(key) = value;
@@ -130,8 +140,66 @@ public:
     return map_.find(key) != map_.end();
   }
 
+  void erase(const A& key) {
+    std::scoped_lock latch(*latch_);
+    map_.erase(key);
+  }
+
 private:
-  const std::unordered_map<A, B>& map_;
+  std::unordered_map<A, B>& map_;
+  std::shared_ptr<std::mutex> latch_;
+};
+template <typename A>
+class ThreadSafeVectorWrapper {
+  public:
+  ThreadSafeVectorWrapper(std::vector<A>& vector,std::shared_ptr<std::mutex> latch) : vector_(vector), latch_(latch) {}
+  ThreadSafeVectorWrapper(const ThreadSafeVectorWrapper& other);
+  ThreadSafeVectorWrapper& operator=(const ThreadSafeVectorWrapper& other){
+    if (this != &other) {
+      vector_ = other.vector_;
+      latch_ = other.latch_;
+    }
+    return *this;
+  };
+  A at(const size_t index) const {
+    std::scoped_lock latch(*latch_);
+    return vector_.at(index);
+  }
+private:
+  std::vector<A>& vector_;
+  std::shared_ptr<std::mutex> latch_;
+};
+
+template <typename A>
+class ThreadSafeListWrapper{
+  public:
+  ThreadSafeListWrapper(std::list<A>& list,std::shared_ptr<std::mutex> latch) : list_(list), latch_(latch) {}
+  ThreadSafeListWrapper(const ThreadSafeListWrapper& other);
+  ThreadSafeListWrapper& operator=(const ThreadSafeListWrapper& other){
+    if (this != &other) {
+      list_ = other.vector_;
+      latch_ = other.latch_;
+    }
+    return *this;
+  };
+  void push_back(const A& value) {
+    std::scoped_lock latch(*latch_);
+    list_.push_back(value);
+  }
+  bool empty() const {
+    std::scoped_lock latch(*latch_);
+    return list_.empty();
+  }
+  A front() const {
+    std::scoped_lock latch(*latch_);
+    return list_.front();
+  }
+  void pop_front() {
+    std::scoped_lock latch(*latch_);
+    list_.pop_front();
+  }
+  private:
+  std::list<A>& list_;
   std::shared_ptr<std::mutex> latch_;
 };
 class BufferPoolManager {
@@ -167,15 +235,16 @@ class BufferPoolManager {
 
   /** @brief The frame headers of the frames that this buffer pool manages. */
   std::vector<std::shared_ptr<FrameHeader>> frames_;
-
+  ThreadSafeVectorWrapper<std::shared_ptr<FrameHeader>> safe_frames_{frames_, bpm_latch_};
   /** @brief The page table that keeps track of the mapping between pages and buffer pool frames. */
   std::unordered_map<page_id_t, frame_id_t> page_table_;
-  std::unordered_map<frame_id_t, page_id_t> frame_table_;
   ThreadSafeMapWrapper<page_id_t, frame_id_t> safe_page_table_{page_table_, bpm_latch_};
-  ThreadSafeMapWrapper<frame_id_t, page_id_t> safe_frame_table_{frame_table_, bpm_latch_};
+  std::unordered_map<frame_id_t, page_id_t> frame_table_;
+  ThreadSafeMapWrapper<frame_id_t, page_id_t> safe_frame_table_{frame_table_,bpm_latch_};
 
   /** @brief A list of free frames that do not hold any page's data. */
   std::list<frame_id_t> free_frames_;
+  ThreadSafeListWrapper<frame_id_t> safe_free_frames_{free_frames_, bpm_latch_};
 
   /** @brief The replacer to find unpinned / candidate pages for eviction. */
   std::shared_ptr<LRUKReplacer> replacer_;

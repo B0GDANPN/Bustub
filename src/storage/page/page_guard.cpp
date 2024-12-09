@@ -137,6 +137,7 @@ void ReadPageGuard::Drop() {
   if (frame_->pin_count_ == 0) {  // need write to disk
     replacer_->SetEvictable(frame_->frame_id_, true);
   }
+  frame_.get()->rwlatch_.unlock_shared();
 }
 
 /** @brief The destructor for `ReadPageGuard`. This destructor simply calls `Drop()`. */
@@ -278,6 +279,7 @@ void WritePageGuard::Drop() {
     frame_->is_dirty_ = true;
     replacer_->SetEvictable(frame_->frame_id_, true);
   }
+  frame_.get()->rwlatch_.unlock();
   
 }
 

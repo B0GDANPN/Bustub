@@ -357,9 +357,11 @@ TEST(BufferPoolManagerTest, DeadlockTest) {
 
 TEST(BufferPoolManagerTest, EvictableTest) {
   // Test if the evictable status of a frame is always correct.
+  //size_t rounds = 1000;
   size_t rounds = 1000;
   //size_t num_readers = 8;
-  size_t num_readers = 2;
+  size_t num_readers = 8;
+  std::atomic<size_t> debug_counter=0;
   auto disk_manager = std::make_shared<DiskManager>(db_fname);
   // Only allocate 1 frame of memory to the buffer pool manager.
   auto bpm = std::make_shared<BufferPoolManager>(1, disk_manager.get(), K_DIST);
@@ -388,9 +390,14 @@ TEST(BufferPoolManagerTest, EvictableTest) {
 
         // Read the page in shared mode.
         auto read_guard = bpm->ReadPage(winner_pid);
-
+        debug_counter++;
+        bool debug=bpm->CheckedReadPage(loser_pid).has_value();
+        if (debug){
+          int u=888;
+          u++;
+        }
         // Since the only frame is pinned, no thread should be able to bring in a new page.
-        ASSERT_FALSE(bpm->CheckedReadPage(loser_pid).has_value());
+        ASSERT_FALSE(debug);
       });
     }
 

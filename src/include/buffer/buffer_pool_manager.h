@@ -107,6 +107,33 @@ class FrameHeader {
  * Make sure you read the writeup in its entirety before attempting to implement the buffer pool manager. You also need
  * to have completed the implementation of both the `LRUKReplacer` and `DiskManager` classes.
  */
+template <typename A, typename B>
+class ThreadSafeMapWrapper {
+
+public:
+  ThreadSafeMapWrapper(const std::unordered_map<A, B>& map,std::shared_ptr<std::mutex> latch) : 
+  map_(map),
+  latch_(latch) {}
+
+  void set(const A& key, const B& value) {
+    std::scoped_lock latch(*latch_);
+    map_.at(key) = value;
+  }
+
+  B get(const A& key) const {
+    std::scoped_lock latch(*latch_);
+    return map_.at(key);
+  }
+
+  bool find(const A& key) const {
+    std::scoped_lock latch(*latch_);
+    return map_.find(key) != map_.end();
+  }
+
+private:
+  const std::unordered_map<A, B>& map_;
+  std::shared_ptr<std::mutex> latch_;
+};
 class BufferPoolManager {
  public:
   BufferPoolManager(size_t num_frames, DiskManager *disk_manager, size_t k_dist = LRUK_REPLACER_K,
@@ -124,7 +151,6 @@ class BufferPoolManager {
   auto FlushPage(page_id_t page_id) -> bool;
   void FlushAllPages();
   auto GetPinCount(page_id_t page_id) -> std::optional<size_t>;
-
  private:
   /** @brief The number of frames in the buffer pool. */
   const size_t num_frames_;
@@ -145,6 +171,8 @@ class BufferPoolManager {
   /** @brief The page table that keeps track of the mapping between pages and buffer pool frames. */
   std::unordered_map<page_id_t, frame_id_t> page_table_;
   std::unordered_map<frame_id_t, page_id_t> frame_table_;
+  ThreadSafeMapWrapper<page_id_t, frame_id_t> safe_page_table_{page_table_, bpm_latch_};
+  ThreadSafeMapWrapper<frame_id_t, page_id_t> safe_frame_table_{frame_table_, bpm_latch_};
 
   /** @brief A list of free frames that do not hold any page's data. */
   std::list<frame_id_t> free_frames_;

@@ -216,7 +216,7 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
     replacer_.get()->RecordAccess(frame_id, access_type);
     replacer_.get()->SetEvictable(frame_id, false);
     {
-      std::scoped_lock latch(*bpm_latch_);
+      std::lock_guard<std::mutex> latch(*bpm_latch_);
       frame->pin_count_++;
     }
     return WritePageGuard(page_id, frame, replacer_, bpm_latch_);
@@ -243,7 +243,7 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
     safe_page_table_[page_id]=frame_id;
     safe_frame_table_[frame_id]=page_id;
     {
-      std::scoped_lock latch(*bpm_latch_);
+      std::lock_guard<std::mutex> latch(*bpm_latch_);
       replacer_.get()->SetEvictable(frame_id, false);
       frame->pin_count_++;
     }
@@ -262,7 +262,7 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
   safe_page_table_[page_id]=frame_id;
   safe_frame_table_[frame_id]=page_id;
   {
-    std::scoped_lock latch(*bpm_latch_);
+    std::lock_guard<std::mutex> latch(*bpm_latch_);
     replacer_.get()->SetEvictable(frame_id, false);
     frame->pin_count_++;
   }
@@ -303,7 +303,7 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
     std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
     replacer_.get()->RecordAccess(frame_id, access_type);
     {
-      std::scoped_lock latch(*bpm_latch_);
+      std::lock_guard<std::mutex> latch(*bpm_latch_);
       replacer_.get()->SetEvictable(frame_id, false);
       frame->pin_count_++;
     }
@@ -331,7 +331,7 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
     safe_page_table_[page_id]= frame_id;
     safe_frame_table_[frame_id]=page_id;
     {
-      std::scoped_lock latch(*bpm_latch_);
+      std::lock_guard<std::mutex> latch(*bpm_latch_);
       replacer_.get()->SetEvictable(frame_id, false);
       frame->pin_count_++;
     }
@@ -350,7 +350,7 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
   safe_page_table_[page_id] =frame_id;
   safe_frame_table_[frame_id]= page_id;
   {
-      std::scoped_lock latch(*bpm_latch_);
+      std::lock_guard<std::mutex> latch(*bpm_latch_);
       replacer_.get()->SetEvictable(frame_id, false);
       frame->pin_count_++;
   }

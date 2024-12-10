@@ -14,8 +14,8 @@
 
 #include <future>  // NOLINT
 #include <optional>
+#include <queue>
 #include <thread>  // NOLINT
-
 #include "common/channel.h"
 #include "storage/disk/disk_manager.h"
 
@@ -41,7 +41,6 @@ struct DiskRequest {
   /** Callback used to signal to the request issuer when the request has been completed. */
   std::promise<bool> callback_;
 };
-
 /**
  * @brief The DiskScheduler schedules disk read and write operations.
  *
@@ -53,7 +52,10 @@ class DiskScheduler {
  public:
   explicit DiskScheduler(DiskManager *disk_manager);
   ~DiskScheduler();
-
+  /*It's up to you to decide how you want
+  to batch, reorder, and issue read/write
+  requests to the local disk. lecture 6
+  */
   /**
    * TODO(P1): Add implementation
    *
@@ -110,5 +112,20 @@ class DiskScheduler {
   Channel<std::optional<DiskRequest>> request_queue_;
   /** The background thread responsible for issuing scheduled requests to the disk manager. */
   std::optional<std::thread> background_thread_;
+
+  struct CompareRequests {
+    bool operator()(const std::pair<DiskRequest, size_t> &a, const std::pair<DiskRequest, size_t> &b) const {
+      if (a.first.page_id_ != b.first.page_id_) {
+        return a.first.page_id_ > b.first.page_id_;
+      }
+      return a.second > b.second;
+    }
+  };
+  size_t order = 0;
+  std::priority_queue<std::pair<DiskRequest, size_t>, std::vector<std::pair<DiskRequest, size_t>>, CompareRequests>
+      queue_requests_;
+  //scan optimization to access pages that are closely located,
+  //if the page_ids are the same, then the pages will be in the order 
+  //in which they were placed, because it is impossible to reorder reading/ writing
 };
 }  // namespace bustub

@@ -14,6 +14,7 @@
 
 #include <limits>
 #include <list>
+#include <map>
 #include <mutex>  // NOLINT
 #include <optional>
 #include <unordered_map>
@@ -30,11 +31,11 @@ class LRUKNode {
  private:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
-
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
+  friend class LRUKReplacer;
+  std::list<size_t> history_;
+  size_t k_;
+  frame_id_t fid_;
+  bool is_evictable_{false};
 };
 
 /**
@@ -58,6 +59,7 @@ class LRUKReplacer {
    * @param num_frames the maximum number of frames the LRUReplacer will be required to store
    */
   explicit LRUKReplacer(size_t num_frames, size_t k);
+  void Print_info(); //print current info about the replacer
 
   DISALLOW_COPY_AND_MOVE(LRUKReplacer);
 
@@ -151,12 +153,14 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+  std::unordered_map<frame_id_t, LRUKNode> node_store_;
+  size_t current_timestamp_{0};
+  size_t curr_size_{0};
+  size_t replacer_size_;
+  size_t k_;
+  std::mutex latch_;
+  size_t size_cache_deleted_pages_ = 64;
+  std::map<size_t, LRUKNode> cache_deleted_pages; //buffer for deleted pages from lecture 6
 };
 
 }  // namespace bustub

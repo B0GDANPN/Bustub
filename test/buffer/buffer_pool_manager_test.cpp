@@ -357,9 +357,7 @@ TEST(BufferPoolManagerTest, DeadlockTest) {
 
 TEST(BufferPoolManagerTest, EvictableTest) {
   // Test if the evictable status of a frame is always correct.
-  //size_t rounds = 1000;
   size_t rounds = 1000;
-  //size_t num_readers = 8;
   size_t num_readers = 8;
   std::atomic<size_t> debug_counter=0;
   auto disk_manager = std::make_shared<DiskManager>(db_fname);

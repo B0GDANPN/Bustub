@@ -125,11 +125,10 @@ public:
     }
     return *this;
   };
-  void set(const A& key, const B& value) {
+  B& operator[](const A& key) {
     std::scoped_lock latch(*latch_);
-    map_.at(key) = value;
+    return map_[key];
   }
-
   B get(const A& key) const {
     std::scoped_lock latch(*latch_);
     return map_.at(key);
@@ -161,10 +160,10 @@ class ThreadSafeVectorWrapper {
     }
     return *this;
   };
-  A at(const size_t index) const {
+  A& operator[](const size_t index) {
     std::scoped_lock latch(*latch_);
-    return vector_.at(index);
-  }
+    return vector_[index];
+  };
 private:
   std::vector<A>& vector_;
   std::shared_ptr<std::mutex> latch_;

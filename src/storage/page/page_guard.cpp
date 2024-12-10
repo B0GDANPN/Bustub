@@ -34,7 +34,6 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
   frame_.get()->rwlatch_.lock_shared();
-  frame_->pin_count_++;
 }
 
 /**
@@ -81,7 +80,7 @@ ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
  */
 auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
   BUSTUB_ENSURE(that.is_valid_, "other read guard op is invalid");
-  if (this != &that){
+  if (this != &that) {
     this->Drop();
     is_valid_ = true;
     that.is_valid_ = false;
@@ -132,6 +131,8 @@ void ReadPageGuard::Drop() {
   if (!is_valid_) {
     return;
   }
+
+  std::scoped_lock bpm_latch(*bpm_latch_);
   is_valid_ = false;
   frame_->pin_count_--;
   if (frame_->pin_count_ == 0) {  // need write to disk
@@ -167,7 +168,6 @@ WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> f
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
   frame_.get()->rwlatch_.lock();
-  frame_->pin_count_++;
 }
 
 /**
@@ -273,6 +273,8 @@ void WritePageGuard::Drop() {
   if (!is_valid_) {
     return;
   }
+
+  std::scoped_lock bpm_latch(*bpm_latch_);
   is_valid_ = false;
   frame_->pin_count_--;
   if (frame_->pin_count_ == 0) {
@@ -280,12 +282,9 @@ void WritePageGuard::Drop() {
     replacer_->SetEvictable(frame_->frame_id_, true);
   }
   frame_.get()->rwlatch_.unlock();
-  
 }
 
 /** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */
-WritePageGuard::~WritePageGuard() {
-   Drop();
-}
+WritePageGuard::~WritePageGuard() { Drop(); }
 
 }  // namespace bustub

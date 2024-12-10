@@ -73,7 +73,7 @@ BufferPoolManager::BufferPoolManager(size_t num_frames, DiskManager *disk_manage
       bpm_latch_(std::make_shared<std::mutex>()),
       replacer_(std::make_shared<LRUKReplacer>(num_frames, k_dist)),
       disk_scheduler_(std::make_unique<DiskScheduler>(disk_manager)),
-      log_manager_(log_manager){
+      log_manager_(log_manager) {
   // Not strictly necessary...
   std::scoped_lock latch(*bpm_latch_);
 
@@ -159,7 +159,7 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
     return true;
   }
   frame_id_t frame_id = safe_page_table_.get(page_id);
-  std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
+  std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
   if (frame.get()->pin_count_ > 0) {
     return false;
   }
@@ -210,11 +210,15 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
  * returns `std::nullopt`, otherwise returns a `WritePageGuard` ensuring exclusive and mutable access to a page's data.
  */
 auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_type) -> std::optional<WritePageGuard> {
-  if (!safe_page_table_.find(page_id)) {  // 1 case exist page in buffer
+  if (safe_page_table_.find(page_id)) {  // 1 case exist page in buffer
     frame_id_t frame_id = safe_page_table_.get(page_id);
-    std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
+    std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
     replacer_.get()->RecordAccess(frame_id, access_type);
     replacer_.get()->SetEvictable(frame_id, false);
+    {
+      std::scoped_lock latch(*bpm_latch_);
+      frame->pin_count_++;
+    }
     return WritePageGuard(page_id, frame, replacer_, bpm_latch_);
   }
   if (safe_free_frames_.empty()) {  // 2 case no free frame and page not in buffer -> need evict
@@ -228,7 +232,7 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
     replacer_.get()->Remove(frame_id);
     replacer_.get()->RecordAccess(frame_id, access_type);  // TODO
 
-    std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
+    std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
     if (frame.get()->is_dirty_) {  // why FlushPage lock fail mid pin test?
       FlushPage(safe_frame_table_.get(frame_id));
       frame.get()->is_dirty_ = false;
@@ -236,14 +240,18 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
     page_id_t evicted_page_id;
     evicted_page_id = safe_frame_table_.get(frame_id);
     safe_page_table_.erase(evicted_page_id);
-    safe_page_table_.set(page_id ,frame_id);
-    safe_frame_table_.set(frame_id ,page_id);
+    safe_page_table_[page_id]=frame_id;
+    safe_frame_table_[frame_id]=page_id;
     std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
     std::future<bool> future = promise.get_future();
     disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
 
     future.get();
-    replacer_.get()->SetEvictable(frame_id, false);
+    {
+      std::scoped_lock latch(*bpm_latch_);
+      replacer_.get()->SetEvictable(frame_id, false);
+      frame->pin_count_++;
+    }
     return WritePageGuard(page_id, frame, replacer_, bpm_latch_);
   }
   // case 3 page not in buffer and have free frame
@@ -251,14 +259,18 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
   safe_free_frames_.pop_front();
   replacer_.get()->RecordAccess(frame_id, access_type);
 
-  std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
-  safe_page_table_.set(page_id ,frame_id);
-  safe_frame_table_.set(frame_id, page_id);
+  std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
+  safe_page_table_[page_id]=frame_id;
+  safe_frame_table_[frame_id]=page_id;
   std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
   std::future<bool> future = promise.get_future();
   disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
   future.get();
-  replacer_.get()->SetEvictable(frame_id, false);
+  {
+    std::scoped_lock latch(*bpm_latch_);
+    replacer_.get()->SetEvictable(frame_id, false);
+    frame->pin_count_++;
+  }
   return WritePageGuard(page_id, frame, replacer_, bpm_latch_);
 }
 
@@ -287,11 +299,15 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
  * returns `std::nullopt`, otherwise returns a `ReadPageGuard` ensuring shared and read-only access to a page's data.
  */
 auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_type) -> std::optional<ReadPageGuard> {
-  if (!safe_page_table_.find(page_id)) {  // 1 case exist page in buffer
+  if (safe_page_table_.find(page_id)) {  // 1 case exist page in buffer
     frame_id_t frame_id = safe_page_table_.get(page_id);
-    std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
+    std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
     replacer_.get()->RecordAccess(frame_id, access_type);
-    replacer_.get()->SetEvictable(frame_id, false);
+    {
+      std::scoped_lock latch(*bpm_latch_);
+      replacer_.get()->SetEvictable(frame_id, false);
+      frame->pin_count_++;
+    }
     return ReadPageGuard(page_id, frame, replacer_, bpm_latch_);
   }
   if (safe_free_frames_.empty()) {  // 2 case no free frame and page not in buffer -> need evict
@@ -305,7 +321,7 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
     replacer_.get()->Remove(frame_id);
     replacer_.get()->RecordAccess(frame_id, access_type);  // TODO
 
-    std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
+    std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
     if (frame.get()->is_dirty_) {  // why FlushPage lock fail mid pin test?
       FlushPage(safe_frame_table_.get(frame_id));
       frame.get()->is_dirty_ = false;
@@ -313,14 +329,18 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
     page_id_t evicted_page_id;
     evicted_page_id = safe_frame_table_.get(frame_id);
     safe_page_table_.erase(evicted_page_id);
-    safe_page_table_.set(page_id ,frame_id);
-    safe_frame_table_.set(frame_id ,page_id);
+    safe_page_table_[page_id]= frame_id;
+    safe_frame_table_[frame_id]=page_id;
     std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
     std::future<bool> future = promise.get_future();
     disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
 
     future.get();
-    replacer_.get()->SetEvictable(frame_id, false);
+    {
+      std::scoped_lock latch(*bpm_latch_);
+      replacer_.get()->SetEvictable(frame_id, false);
+      frame->pin_count_++;
+    }
     return ReadPageGuard(page_id, frame, replacer_, bpm_latch_);
   }
   // case 3 page not in buffer and have free frame
@@ -328,14 +348,18 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
   safe_free_frames_.pop_front();
   replacer_.get()->RecordAccess(frame_id, access_type);
 
-  std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
-  safe_page_table_.set(page_id ,frame_id);
-  safe_frame_table_.set(frame_id, page_id);
+  std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
+  safe_page_table_[page_id] =frame_id;
+  safe_frame_table_[frame_id]= page_id;
   std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
   std::future<bool> future = promise.get_future();
   disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
   future.get();
-  replacer_.get()->SetEvictable(frame_id, false);
+  {
+      std::scoped_lock latch(*bpm_latch_);
+      replacer_.get()->SetEvictable(frame_id, false);
+      frame->pin_count_++;
+  }
   return ReadPageGuard(page_id, frame, replacer_, bpm_latch_);
 }
 /**
@@ -409,7 +433,7 @@ auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
     return false;
   }
   frame_id_t frame_id = safe_page_table_.get(page_id);
-  std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
+  std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
   if (!frame.get()->is_dirty_) {
     return true;
   }
@@ -461,12 +485,12 @@ void BufferPoolManager::FlushAllPages() {
  * @return std::optional<size_t> The pin count if the page exists, otherwise `std::nullopt`.
  */
 auto BufferPoolManager::GetPinCount(page_id_t page_id) -> std::optional<size_t> {
-  if(!safe_page_table_.find(page_id)) {
+  if (!safe_page_table_.find(page_id)) {
     return std::nullopt;
   }
 
-  frame_id_t frame_id =safe_page_table_.get(page_id);
-  std::shared_ptr<FrameHeader> frame = safe_frames_.at(frame_id);
+  frame_id_t frame_id = safe_page_table_.get(page_id);
+  std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
   return frame.get()->pin_count_;
 }
 

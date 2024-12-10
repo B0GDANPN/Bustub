@@ -126,21 +126,21 @@ public:
     return *this;
   };
   B& operator[](const A& key) {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     return map_[key];
   }
   B get(const A& key) const {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     return map_.at(key);
   }
 
   bool find(const A& key) const {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     return map_.find(key) != map_.end();
   }
 
   void erase(const A& key) {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     map_.erase(key);
   }
 
@@ -161,7 +161,7 @@ class ThreadSafeVectorWrapper {
     return *this;
   };
   A& operator[](const size_t index) {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     return vector_[index];
   };
 private:
@@ -176,25 +176,25 @@ class ThreadSafeListWrapper{
   ThreadSafeListWrapper(const ThreadSafeListWrapper& other);
   ThreadSafeListWrapper& operator=(const ThreadSafeListWrapper& other){
     if (this != &other) {
-      list_ = other.vector_;
+      list_ = other.list_;
       latch_ = other.latch_;
     }
     return *this;
   };
   void push_back(const A& value) {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     list_.push_back(value);
   }
   bool empty() const {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     return list_.empty();
   }
   A front() const {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     return list_.front();
   }
   void pop_front() {
-    std::scoped_lock latch(*latch_);
+    std::lock_guard<std::mutex> latch(*latch_);
     list_.pop_front();
   }
   private:

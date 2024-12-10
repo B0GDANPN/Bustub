@@ -242,16 +242,15 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
     safe_page_table_.erase(evicted_page_id);
     safe_page_table_[page_id]=frame_id;
     safe_frame_table_[frame_id]=page_id;
-    std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
-    std::future<bool> future = promise.get_future();
-    disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
-
-    future.get();
     {
       std::scoped_lock latch(*bpm_latch_);
       replacer_.get()->SetEvictable(frame_id, false);
       frame->pin_count_++;
     }
+    std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
+    std::future<bool> future = promise.get_future();
+    disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
+    future.get();
     return WritePageGuard(page_id, frame, replacer_, bpm_latch_);
   }
   // case 3 page not in buffer and have free frame
@@ -262,15 +261,15 @@ auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_ty
   std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
   safe_page_table_[page_id]=frame_id;
   safe_frame_table_[frame_id]=page_id;
-  std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
-  std::future<bool> future = promise.get_future();
-  disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
-  future.get();
   {
     std::scoped_lock latch(*bpm_latch_);
     replacer_.get()->SetEvictable(frame_id, false);
     frame->pin_count_++;
   }
+  std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
+  std::future<bool> future = promise.get_future();
+  disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
+  future.get();
   return WritePageGuard(page_id, frame, replacer_, bpm_latch_);
 }
 
@@ -331,16 +330,15 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
     safe_page_table_.erase(evicted_page_id);
     safe_page_table_[page_id]= frame_id;
     safe_frame_table_[frame_id]=page_id;
-    std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
-    std::future<bool> future = promise.get_future();
-    disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
-
-    future.get();
     {
       std::scoped_lock latch(*bpm_latch_);
       replacer_.get()->SetEvictable(frame_id, false);
       frame->pin_count_++;
     }
+    std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
+    std::future<bool> future = promise.get_future();
+    disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
+    future.get();
     return ReadPageGuard(page_id, frame, replacer_, bpm_latch_);
   }
   // case 3 page not in buffer and have free frame
@@ -351,15 +349,15 @@ auto BufferPoolManager::CheckedReadPage(page_id_t page_id, AccessType access_typ
   std::shared_ptr<FrameHeader> frame = safe_frames_[frame_id];
   safe_page_table_[page_id] =frame_id;
   safe_frame_table_[frame_id]= page_id;
-  std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
-  std::future<bool> future = promise.get_future();
-  disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
-  future.get();
   {
       std::scoped_lock latch(*bpm_latch_);
       replacer_.get()->SetEvictable(frame_id, false);
       frame->pin_count_++;
   }
+  std::promise<bool> promise = disk_scheduler_.get()->CreatePromise();
+  std::future<bool> future = promise.get_future();
+  disk_scheduler_.get()->Schedule({false, frame.get()->GetDataMut(), page_id, std::move(promise)});
+  future.get();
   return ReadPageGuard(page_id, frame, replacer_, bpm_latch_);
 }
 /**

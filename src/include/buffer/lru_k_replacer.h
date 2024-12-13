@@ -17,9 +17,10 @@
 #include <mutex>  // NOLINT
 #include <optional>
 #include <unordered_map>
+#include <queue>
 #include <map>
 #include <vector>
-
+#include <set>
 #include "common/config.h"
 #include "common/macros.h"
 
@@ -161,7 +162,22 @@ class LRUKReplacer {
   [[maybe_unused]] std::mutex latch_;
   size_t size_cache_deleted_pages_ = 64;
   std::map<size_t, LRUKNode> cache_deleted_pages; //buffer for deleted pages from lecture 6
-  
-};
 
-}  // namespace bustub
+  struct CompareLessKNode {
+    bool operator()(const LRUKNode &a, const LRUKNode &b) const {
+      //always history size >0
+      return a.history_.back()>b.history_.back();
+    }
+  };
+  struct CompareKNode {
+    bool operator()(const LRUKNode &a, const LRUKNode &b) const {
+      //always history size >0
+      return a.history_.front()>b.history_.front();
+    }
+  };
+  std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareLessKNode>
+      less_k_history_;
+  std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareKNode>
+      k_history_;
+}; 
+}// namespace bustub

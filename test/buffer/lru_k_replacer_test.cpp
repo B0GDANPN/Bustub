@@ -54,7 +54,7 @@ TEST(LRUKReplacerTest, SampleTest) {
   ASSERT_EQ(4, lru_replacer.Evict());
   ASSERT_EQ(2, lru_replacer.Size());
   // Now the replacer has the frames [5, 1].
-
+  
   // Insert new frames [3, 4], and update the access history for 5. Now, the ordering is [3, 1, 5, 4].
   lru_replacer.RecordAccess(3);
   lru_replacer.RecordAccess(4);

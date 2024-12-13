@@ -21,27 +21,14 @@ auto LRUKReplacer::Evict() -> std::optional<frame_id_t> {
   if (curr_size_ == 0) {
     return std::nullopt;
   }
-  size_t max_distance = 0;
   frame_id_t frame;
-  for (const auto &it_node : node_store_) {
-    const LRUKNode &node = it_node.second;
-    if (!node.is_evictable_) {
-      continue;
-    }
-
-    size_t tmp_distance;
-    if (node.history_.size() < node.k_) {
-      tmp_distance = SIZE_MAX;
-    } else {
-      tmp_distance = current_timestamp_ - node.history_.back();
-    }
-    if (tmp_distance > max_distance) {
-      max_distance = tmp_distance;
-      frame = node.fid_;
-    }
-    if (tmp_distance == SIZE_MAX && node.history_.back() < node_store_[frame].history_.back()) {
-      frame = node.fid_;
-    }
+  /// get the max distance
+  if (!less_k_history_.empty()) {
+    frame = less_k_history_.top().fid_;
+    less_k_history_.pop();
+  } else {
+    frame = k_history_.top().fid_;
+    k_history_.pop();
   }
   curr_size_--;
   cache_deleted_pages.insert({current_timestamp_++, node_store_[frame]});
@@ -80,6 +67,32 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
   node.history_.push_back(current_timestamp_++);
   if (node.history_.size() > k_) {
     node.history_.pop_front();
+    if (node.is_evictable_) {
+      std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareKNode> new_k_history_;
+      while (k_history_.top().fid_ != frame_id) {
+        new_k_history_.push(k_history_.top());
+        k_history_.pop();
+      }
+      k_history_.pop();
+      while (!new_k_history_.empty()) {
+        k_history_.push(new_k_history_.top());
+        new_k_history_.pop();
+      }
+      k_history_.push(node);
+    }
+  }
+  if (node.history_.size() == k_ && node.is_evictable_) {  // just care from less_k to k_history
+    k_history_.push(node);
+    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareLessKNode> new_less_k_history_;
+    while (less_k_history_.top().fid_ != frame_id) {
+      new_less_k_history_.push(less_k_history_.top());
+      less_k_history_.pop();
+    }
+    less_k_history_.pop();
+    while (!new_less_k_history_.empty()) {
+      less_k_history_.push(new_less_k_history_.top());
+      new_less_k_history_.pop();
+    }
   }
   node_store_[frame_id] = node;
 }
@@ -94,9 +107,42 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   if (set_evictable && !node.is_evictable_) {
     curr_size_++;
     node.is_evictable_ = true;
+    if (node.history_.size() < k_) {  // add to heaps
+      less_k_history_.push(node);
+    } else {
+      k_history_.push(node);
+    }
   } else if (!set_evictable && node.is_evictable_) {
     curr_size_--;
     node.is_evictable_ = false;
+    // need to remove from heaps
+    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareKNode> new_k_history_;
+    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareLessKNode> new_less_k_history_;
+    bool in_k_history = false;
+    while (!k_history_.empty()) {
+      if (k_history_.top().fid_ == frame_id) {
+        in_k_history = true;
+        k_history_.pop();
+        break;
+      }
+      new_k_history_.push(k_history_.top());
+      k_history_.pop();
+    }
+    while (!new_k_history_.empty()) {
+      k_history_.push(new_k_history_.top());
+      new_k_history_.pop();
+    }
+    if (!in_k_history) {
+      while (less_k_history_.top().fid_ != frame_id) {
+        new_less_k_history_.push(less_k_history_.top());
+        less_k_history_.pop();
+      }
+      less_k_history_.pop();
+      while (!new_less_k_history_.empty()) {
+        less_k_history_.push(new_less_k_history_.top());
+        new_less_k_history_.pop();
+      }
+    }
   }
   node_store_[frame_id] = node;
   current_timestamp_++;
@@ -105,7 +151,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   std::lock_guard<std::mutex> latch(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) < replacer_size_, "frame_id out of range");
-  if (node_store_.find(frame_id) != node_store_.end()){
+  if (node_store_.find(frame_id) != node_store_.end()) {
     LRUKNode node = node_store_[frame_id];
     BUSTUB_ASSERT(node.is_evictable_, "frame_id is not evictable");
     cache_deleted_pages.insert({current_timestamp_++, node});
@@ -122,7 +168,7 @@ void LRUKReplacer::Print_info() {
   std::cout << "replacer size: " << replacer_size_ << std::endl;
   std::cout << "current timestamp: " << current_timestamp_ << std::endl;
   std::cout << "k: " << k_ << std::endl;
-  std::cout << "current size of evicred pages: " << curr_size_ << std::endl;
+  std::cout << "current size of evicted pages: " << curr_size_ << std::endl;
   for (auto it = node_store_.begin(); it != node_store_.end(); it++) {
     frame_id_t frame_id = it->first;
     LRUKNode node = it->second;
@@ -152,5 +198,27 @@ void LRUKReplacer::Print_info() {
     }
     std::cout << std::endl;
   }
+  std::vector<LRUKNode> v1, v2;
+  std::cout << "k_history: " << std::endl;
+  while (!k_history_.empty()) {
+    std::cout << k_history_.top().fid_ << " ";
+    v1.push_back(k_history_.top());
+    k_history_.pop();
+  }
+  std::cout << std::endl;
+  std::cout << "less_k_history: " << std::endl;
+  while (!less_k_history_.empty()) {
+    std::cout << less_k_history_.top().fid_ << " ";
+    v2.push_back(less_k_history_.top());
+    less_k_history_.pop();
+  }
+  std::cout << std::endl;
+  for (auto it = v1.begin(); it != v1.end(); it++) {
+    k_history_.push(*it);
+  }
+  for (auto it = v2.begin(); it != v2.end(); it++) {
+    less_k_history_.push(*it);
+  }
+  std::cout << "------------------------------------" << std::endl;
 }
 }  // namespace bustub

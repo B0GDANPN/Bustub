@@ -88,6 +88,12 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
       new_less_k_history_.push(less_k_history_.top());
       less_k_history_.pop();
     }
+    //debug
+    if(less_k_history_.size()==0){
+      int uu=85;
+      uu++;
+    }
+    //debug
     less_k_history_.pop();
     while (!new_less_k_history_.empty()) {
       less_k_history_.push(new_less_k_history_.top());

@@ -71,6 +71,7 @@ BufferPoolManager::BufferPoolManager(size_t num_frames, DiskManager *disk_manage
     : num_frames_(num_frames),
       next_page_id_(0),
       bpm_latch_(std::make_shared<std::mutex>()),
+      free_frames_latch_(std::make_shared<std::mutex>()),
       replacer_(std::make_shared<LRUKReplacer>(num_frames, k_dist)),
       disk_scheduler_(std::make_unique<DiskScheduler>(disk_manager)),
       log_manager_(log_manager) {
@@ -163,7 +164,10 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
     page_table_.erase(page_id);
     frames_[frame_id].get()->page_id_ = -1;
     frame.get()->Reset();
-    free_frames_.push_back(frame_id);
+    {
+      std::lock_guard<std::mutex> latch(*free_frames_latch_);
+      free_frames_.push_back(frame_id);
+    }
   }
   disk_scheduler_.get()->DeallocatePage(page_id);
   return true;
@@ -220,8 +224,12 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
     }
     return TypePageGuard(page_id, frame, replacer_, bpm_latch_);
   }
-  if (free_frames_.empty()) {  // 2 case no free frame and page not in buffer -> need evict
-    // std::scoped_lock latch(*bpm_latch_);
+  bool is_free_frames_empty;
+  {
+    std::lock_guard<std::mutex> latch(*free_frames_latch_);
+    is_free_frames_empty = free_frames_.empty();
+  }
+  if (is_free_frames_empty) {  // 2 case no free frame and page not in buffer -> need evict
     std::optional<frame_id_t> evicted_frame_id;
     evicted_frame_id = replacer_.get()->Evict();
     if (!evicted_frame_id.has_value()) {
@@ -253,8 +261,12 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
     return TypePageGuard(page_id, frame, replacer_, bpm_latch_);
   }
   // case 3 page not in buffer and have free frame
-  frame_id_t frame_id = free_frames_.front();
-  free_frames_.pop_front();
+  frame_id_t frame_id;
+  {
+    std::lock_guard<std::mutex> latch(*free_frames_latch_);
+    frame_id = free_frames_.front();
+    free_frames_.pop_front();
+  }
   replacer_.get()->RecordAccess(frame_id, access_type);
 
   std::shared_ptr<FrameHeader> frame = frames_[frame_id];

@@ -33,7 +33,7 @@ ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> fra
       replacer_(std::move(replacer)),
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
-  frame_.get()->rwlatch_.lock_shared();
+  frame_->rwlatch_.lock_shared();
 }
 
 /**
@@ -131,14 +131,15 @@ void ReadPageGuard::Drop() {
   if (!is_valid_) {
     return;
   }
-
-  std::scoped_lock bpm_latch(*bpm_latch_);
-  is_valid_ = false;
-  frame_->pin_count_--;
-  if (frame_->pin_count_ == 0) {  // need write to disk
-    replacer_->SetEvictable(frame_->frame_id_, true);
-  }
-  frame_.get()->rwlatch_.unlock_shared();
+  //{
+  //  std::scoped_lock bpm_latch(*bpm_latch_);
+    is_valid_ = false;
+    frame_->pin_count_--;
+    if (frame_->pin_count_ == 0) {  // need write to disk
+      replacer_->SetEvictable(frame_->frame_id_, true);
+    }
+  //}
+  frame_->rwlatch_.unlock_shared();
 }
 
 /** @brief The destructor for `ReadPageGuard`. This destructor simply calls `Drop()`. */
@@ -167,7 +168,7 @@ WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> f
       replacer_(std::move(replacer)),
       bpm_latch_(std::move(bpm_latch)),
       is_valid_(true) {
-  frame_.get()->rwlatch_.lock();
+  frame_->rwlatch_.lock();
 }
 
 /**
@@ -274,16 +275,17 @@ void WritePageGuard::Drop() {
     return;
   }
 
-  std::scoped_lock bpm_latch(*bpm_latch_);
-  is_valid_ = false;
-  frame_->pin_count_--;
-  if (frame_->pin_count_ == 0) {
-    frame_->is_dirty_ = true;
-    replacer_->SetEvictable(frame_->frame_id_, true);
-  }
-  frame_.get()->rwlatch_.unlock();
+  //{
+  //  std::scoped_lock bpm_latch(*bpm_latch_);
+    is_valid_ = false;
+    frame_->pin_count_--;
+    if (frame_->pin_count_ == 0) {
+      frame_->is_dirty_ = true;
+      replacer_->SetEvictable(frame_->frame_id_, true);
+    }
+  frame_->rwlatch_.unlock();
+  //}
 }
-
 /** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */
 WritePageGuard::~WritePageGuard() { Drop(); }
 

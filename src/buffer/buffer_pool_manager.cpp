@@ -236,7 +236,7 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
       replacer_->Remove(frame_id);
       replacer_->RecordAccess(frame_id, access_type);
       frame = frames_[frame_id];
-      if (frame->is_dirty_) {  // why FlushPage lock fail mid pin test?
+      if (frame->is_dirty_) {
         FlushPage(frames_[frame_id]->page_id_);
         frame->is_dirty_ = false;
       }

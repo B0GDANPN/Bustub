@@ -153,8 +153,7 @@ class BufferPoolManager {
   std::unordered_map<page_id_t, frame_id_t> page_table_;
 
   /** @brief A list of free frames that do not hold any page's data. */
-  std::list<frame_id_t> free_frames_; 
-  std::shared_ptr<std::mutex> free_frames_latch_;// need exclusive access to free_frames
+  std::list<frame_id_t> free_frames_;
   /** @brief The replacer to find unpinned / candidate pages for eviction. */
   std::shared_ptr<LRUKReplacer> replacer_;
 

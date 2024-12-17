@@ -66,36 +66,30 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
   if (node.history_.size() > k_) {
     node.history_.pop_front();
     if (node.is_evictable_) {
-      std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareKNode> new_k_history_;
+      std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareKNode> tmp_k_history_;
       while (k_history_.top().fid_ != frame_id) {
-        new_k_history_.push(k_history_.top());
+        tmp_k_history_.push(k_history_.top());
         k_history_.pop();
       }
       k_history_.pop();
-      while (!new_k_history_.empty()) {
-        k_history_.push(new_k_history_.top());
-        new_k_history_.pop();
+      while (!tmp_k_history_.empty()) {
+        k_history_.push(tmp_k_history_.top());
+        tmp_k_history_.pop();
       }
       k_history_.push(node);
     }
   }
   if (node.history_.size() == k_ && node.is_evictable_) {  // just care from less_k to k_history
     k_history_.push(node);
-    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareLessKNode> new_less_k_history_;
+    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareLessKNode> tmp_less_k_history_;
     while (less_k_history_.top().fid_ != frame_id) {
-      new_less_k_history_.push(less_k_history_.top());
+      tmp_less_k_history_.push(less_k_history_.top());
       less_k_history_.pop();
     }
-    //debug
-    if(less_k_history_.size()==0){
-      int uu=85;
-      uu++;
-    }
-    //debug
     less_k_history_.pop();
-    while (!new_less_k_history_.empty()) {
-      less_k_history_.push(new_less_k_history_.top());
-      new_less_k_history_.pop();
+    while (!tmp_less_k_history_.empty()) {
+      less_k_history_.push(tmp_less_k_history_.top());
+      tmp_less_k_history_.pop();
     }
   }
   node_store_[frame_id] = node;
@@ -119,8 +113,8 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
     curr_size_--;
     node.is_evictable_ = false;
     // need to remove from heaps
-    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareKNode> new_k_history_;
-    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareLessKNode> new_less_k_history_;
+    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareKNode> tmp_k_history_;
+    std::priority_queue<LRUKNode, std::vector<LRUKNode>, CompareLessKNode> tmp_less_k_history_;
     bool in_k_history = false;
     while (!k_history_.empty()) {
       if (k_history_.top().fid_ == frame_id) {
@@ -128,22 +122,22 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
         k_history_.pop();
         break;
       }
-      new_k_history_.push(k_history_.top());
+      tmp_k_history_.push(k_history_.top());
       k_history_.pop();
     }
-    while (!new_k_history_.empty()) {
-      k_history_.push(new_k_history_.top());
-      new_k_history_.pop();
+    while (!tmp_k_history_.empty()) {
+      k_history_.push(tmp_k_history_.top());
+      tmp_k_history_.pop();
     }
     if (!in_k_history) {
       while (less_k_history_.top().fid_ != frame_id) {
-        new_less_k_history_.push(less_k_history_.top());
+        tmp_less_k_history_.push(less_k_history_.top());
         less_k_history_.pop();
       }
       less_k_history_.pop();
-      while (!new_less_k_history_.empty()) {
-        less_k_history_.push(new_less_k_history_.top());
-        new_less_k_history_.pop();
+      while (!tmp_less_k_history_.empty()) {
+        less_k_history_.push(tmp_less_k_history_.top());
+        tmp_less_k_history_.pop();
       }
     }
   }

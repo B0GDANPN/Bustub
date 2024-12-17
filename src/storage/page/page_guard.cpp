@@ -27,11 +27,11 @@ namespace bustub {
  * @param bpm_latch A shared pointer to the buffer pool manager's latch.
  */
 ReadPageGuard::ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame,
-                             std::shared_ptr<LRUKReplacer> replacer, std::shared_ptr<std::mutex> bpm_latch)
+                             std::shared_ptr<LRUKReplacer> replacer)
     : page_id_(page_id),
       frame_(std::move(frame)),
       replacer_(std::move(replacer)),
-      bpm_latch_(std::move(bpm_latch)),
+      dealloc_latch_(std::make_shared<std::mutex>()),
       is_valid_(true) {
   frame_->rwlatch_.lock_shared();
 }
@@ -58,7 +58,7 @@ ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
   page_id_ = that.page_id_;
   frame_ = std::move(that.frame_);
   replacer_ = std::move(that.replacer_);
-  bpm_latch_ = std::move(that.bpm_latch_);
+  dealloc_latch_ = std::move(that.dealloc_latch_);
 }
 
 /**
@@ -87,7 +87,7 @@ auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & 
     page_id_ = that.page_id_;
     frame_ = std::move(that.frame_);
     replacer_ = std::move(that.replacer_);
-    bpm_latch_ = std::move(that.bpm_latch_);
+    dealloc_latch_ = std::move(that.dealloc_latch_);
   }
   return *this;
 }
@@ -131,14 +131,14 @@ void ReadPageGuard::Drop() {
   if (!is_valid_) {
     return;
   }
-  //{
-  //  std::scoped_lock bpm_latch(*bpm_latch_);
+  {
+    std::scoped_lock bpm_latch(*dealloc_latch_);
     is_valid_ = false;
     frame_->pin_count_--;
     if (frame_->pin_count_ == 0) {  // need write to disk
       replacer_->SetEvictable(frame_->frame_id_, true);
     }
-  //}
+  }
   frame_->rwlatch_.unlock_shared();
 }
 
@@ -162,11 +162,11 @@ ReadPageGuard::~ReadPageGuard() { Drop(); }
  * @param bpm_latch A shared pointer to the buffer pool manager's latch.
  */
 WritePageGuard::WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame,
-                               std::shared_ptr<LRUKReplacer> replacer, std::shared_ptr<std::mutex> bpm_latch)
+                               std::shared_ptr<LRUKReplacer> replacer)
     : page_id_(page_id),
       frame_(std::move(frame)),
       replacer_(std::move(replacer)),
-      bpm_latch_(std::move(bpm_latch)),
+      dealloc_latch_(std::make_shared<std::mutex>()),
       is_valid_(true) {
   frame_->rwlatch_.lock();
 }
@@ -193,7 +193,7 @@ WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {
   page_id_ = that.page_id_;
   frame_ = std::move(that.frame_);
   replacer_ = std::move(that.replacer_);
-  bpm_latch_ = std::move(that.bpm_latch_);
+  dealloc_latch_ = std::move(that.dealloc_latch_);
 }
 
 /**
@@ -222,7 +222,7 @@ auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard
     page_id_ = that.page_id_;
     frame_ = std::move(that.frame_);
     replacer_ = std::move(that.replacer_);
-    bpm_latch_ = std::move(that.bpm_latch_);
+    dealloc_latch_ = std::move(that.dealloc_latch_);
   }
   return *this;
 }
@@ -275,16 +275,16 @@ void WritePageGuard::Drop() {
     return;
   }
 
-  //{
-  //  std::scoped_lock bpm_latch(*bpm_latch_);
+  {
+    std::scoped_lock bpm_latch(*dealloc_latch_);
     is_valid_ = false;
     frame_->pin_count_--;
     if (frame_->pin_count_ == 0) {
       frame_->is_dirty_ = true;
       replacer_->SetEvictable(frame_->frame_id_, true);
     }
+  }
   frame_->rwlatch_.unlock();
-  //}
 }
 /** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */
 WritePageGuard::~WritePageGuard() { Drop(); }

@@ -220,7 +220,7 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
       replacer_->RecordAccess(frame_id, access_type);
       frame->pin_count_++;
       replacer_->SetEvictable(frame_id, false);
-      return TypePageGuard(page_id, frame, replacer_, bpm_latch_);
+      return TypePageGuard(page_id, frame, replacer_);
     }
   }
 
@@ -250,7 +250,7 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
       std::future<bool> future = promise.get_future();
       disk_scheduler_->Schedule({false, frame->GetDataMut(), page_id, std::move(promise)});
       future.get();
-      return TypePageGuard(page_id, frame, replacer_, bpm_latch_);
+      return TypePageGuard(page_id, frame, replacer_);
     }
   }
 
@@ -270,7 +270,7 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
   std::future<bool> future = promise.get_future();
   disk_scheduler_->Schedule({false, frame->GetDataMut(), page_id, std::move(promise)});
   future.get();
-  return TypePageGuard(page_id, frame, replacer_, bpm_latch_);
+  return TypePageGuard(page_id, frame, replacer_);
 }
 auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_type) -> std::optional<WritePageGuard> {
   return NewPageGuard<WritePageGuard>(page_id, access_type);

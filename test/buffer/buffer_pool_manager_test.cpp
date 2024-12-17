@@ -390,10 +390,7 @@ TEST(BufferPoolManagerTest, EvictableTest) {
         auto read_guard = bpm->ReadPage(winner_pid);
         debug_counter++;
         bool debug=bpm->CheckedReadPage(loser_pid).has_value();
-        if (debug){
-          int u=888;
-          u++;
-        }
+        
         // Since the only frame is pinned, no thread should be able to bring in a new page.
         ASSERT_FALSE(debug);
       });

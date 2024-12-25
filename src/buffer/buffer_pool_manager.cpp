@@ -223,7 +223,7 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
       replacer_->RecordAccess(frame_id, access_type);
       frame->pin_count_++;
       replacer_->SetEvictable(frame_id, false);
-      return TypePageGuard(page_id, frame, replacer_);
+      return TypePageGuard(page_id, frame, replacer_,bpm_latch_);
     }
     if (free_frames_.empty()) {  // 2 case no free frame and page not in buffer -> need evict
       std::optional<frame_id_t> evicted_frame_id = replacer_->Evict();
@@ -255,7 +255,7 @@ auto BufferPoolManager::NewPageGuard(page_id_t page_id, AccessType access_type) 
     std::future<bool> future = promise.get_future();
     disk_scheduler_->Schedule({false, frame->GetDataMut(), page_id, std::move(promise)});
     future.get();
-    return TypePageGuard(page_id, frame, replacer_);
+    return TypePageGuard(page_id, frame, replacer_,bpm_latch_);
   
 }
 auto BufferPoolManager::CheckedWritePage(page_id_t page_id, AccessType access_type) -> std::optional<WritePageGuard> {
@@ -364,7 +364,7 @@ auto BufferPoolManager::FlushPage(frame_id_t frame_id) -> bool {
   std::promise<bool> promise = disk_scheduler_->CreatePromise();
   std::future<bool> future = promise.get_future();
   disk_scheduler_->Schedule({true, frame->GetDataMut(),frame->page_id_, std::move(promise)});
-  frame.reset();
+  frame->Reset();
   return future.get();
 }
 
@@ -412,13 +412,16 @@ void BufferPoolManager::FlushAllPages() {
  * @return std::optional<size_t> The pin count if the page exists, otherwise `std::nullopt`.
  */
 auto BufferPoolManager::GetPinCount(page_id_t page_id) -> std::optional<size_t> {
-  if (page_table_.find(page_id) == page_table_.end()) {
-    return std::nullopt;
-  }
+  {
+    std::lock_guard<std::mutex> latch(*bpm_latch_);
+    if (page_table_.find(page_id) == page_table_.end()) {
+      return std::nullopt;
+    }
 
-  frame_id_t frame_id = page_table_[page_id];
-  std::shared_ptr<FrameHeader> frame = frames_[frame_id];
-  return frame->pin_count_;
+    frame_id_t frame_id = page_table_[page_id];
+    std::shared_ptr<FrameHeader> frame = frames_[frame_id];
+    return frame->pin_count_;
+  }
 }
 
 }  // namespace bustub

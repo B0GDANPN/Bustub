@@ -54,7 +54,6 @@ TEST(LRUKReplacerTest, SampleTest) {
   ASSERT_EQ(4, lru_replacer.Evict());
   ASSERT_EQ(2, lru_replacer.Size());
   // Now the replacer has the frames [5, 1].
-  
   // Insert new frames [3, 4], and update the access history for 5. Now, the ordering is [3, 1, 5, 4].
   lru_replacer.RecordAccess(3);
   lru_replacer.RecordAccess(4);
@@ -63,7 +62,6 @@ TEST(LRUKReplacerTest, SampleTest) {
   lru_replacer.SetEvictable(3, true);
   lru_replacer.SetEvictable(4, true);
   ASSERT_EQ(4, lru_replacer.Size());
-
   // Look for a frame to evict. We expect frame 3 to be evicted next.
   ASSERT_EQ(3, lru_replacer.Evict());
   ASSERT_EQ(3, lru_replacer.Size());

@@ -41,6 +41,9 @@ auto LRUKReplacer::Evict() -> std::optional<frame_id_t> {
       frame = node.fid_;
     }
   }
+  node_store_[frame].is_evictable_ = false;
+  node_store_[frame].history_.clear();
+  curr_size_--;
   return frame;
 }
 
@@ -80,11 +83,13 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) < replacer_size_, "frame_id out of range");
-  BUSTUB_ASSERT(node_store_.find(frame_id) != node_store_.end(), "frame_id not found in node_store");
-  LRUKNode node = node_store_[frame_id];
-  BUSTUB_ASSERT(node.is_evictable_, "frame_id is not evictable");
-  curr_size_--;
-  node_store_.erase(frame_id);
+  if (node_store_.find(frame_id) != node_store_.end()){
+    LRUKNode node = node_store_[frame_id];
+    if (node.is_evictable_) {
+      curr_size_--;
+    }
+    node_store_.erase(frame_id);
+  }
 }
 
 auto LRUKReplacer::Size() -> size_t { return curr_size_; }

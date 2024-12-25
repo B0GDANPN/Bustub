@@ -65,7 +65,8 @@ class ReadPageGuard {
 
  private:
   /** @brief Only the buffer pool manager is allowed to construct a valid `ReadPageGuard.` */
-  explicit ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame, std::shared_ptr<LRUKReplacer> replacer);
+  explicit ReadPageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame, std::shared_ptr<LRUKReplacer> replacer,
+                         std::shared_ptr<std::mutex> bpm_latch);
 
   /** @brief The page ID of the page we are guarding. */
   page_id_t page_id_;
@@ -91,8 +92,8 @@ class ReadPageGuard {
    * Since the buffer pool cannot know when this `ReadPageGuard` gets destructed, we maintain a pointer to the buffer
    * pool's latch for when we need to update the frame's eviction state in the buffer pool replacer.
    */
-  //std::shared_ptr<std::mutex> bpm_latch_;
-  std::shared_ptr<std::mutex> dealloc_latch_;
+  std::shared_ptr<std::mutex> bpm_latch_;
+
   /**
    * @brief The validity flag for this `ReadPageGuard`.
    *
@@ -163,7 +164,8 @@ class WritePageGuard {
 
  private:
   /** @brief Only the buffer pool manager is allowed to construct a valid `WritePageGuard.` */
-  explicit WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame, std::shared_ptr<LRUKReplacer> replacer);
+  explicit WritePageGuard(page_id_t page_id, std::shared_ptr<FrameHeader> frame, std::shared_ptr<LRUKReplacer> replacer,
+                          std::shared_ptr<std::mutex> bpm_latch);
 
   /** @brief The page ID of the page we are guarding. */
   page_id_t page_id_;
@@ -189,8 +191,8 @@ class WritePageGuard {
    * Since the buffer pool cannot know when this `WritePageGuard` gets destructed, we maintain a pointer to the buffer
    * pool's latch for when we need to update the frame's eviction state in the buffer pool replacer.
    */
-  //std::shared_ptr<std::mutex> bpm_latch_;
-  std::shared_ptr<std::mutex> dealloc_latch_;
+  std::shared_ptr<std::mutex> bpm_latch_;
+
   /**
    * @brief The validity flag for this `WritePageGuard`.
    *

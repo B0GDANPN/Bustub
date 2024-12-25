@@ -17,8 +17,10 @@
 #include <mutex>  // NOLINT
 #include <optional>
 #include <unordered_map>
+#include <queue>
+#include <map>
 #include <vector>
-
+#include <set>
 #include "common/config.h"
 #include "common/macros.h"
 
@@ -30,7 +32,7 @@ class LRUKNode {
  private:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
-
+  friend class LRUKReplacer;
   [[maybe_unused]] std::list<size_t> history_;
   [[maybe_unused]] size_t k_;
   [[maybe_unused]] frame_id_t fid_;
@@ -67,6 +69,7 @@ class LRUKReplacer {
    * @brief Destroys the LRUReplacer.
    */
   ~LRUKReplacer() = default;
+  void Print_info(); //print current info about the replacer
 
   /**
    * TODO(P1): Add implementation
@@ -156,7 +159,5 @@ class LRUKReplacer {
   [[maybe_unused]] size_t curr_size_{0};
   [[maybe_unused]] size_t replacer_size_;
   [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
-};
-
-}  // namespace bustub
+}; 
+}// namespace bustub

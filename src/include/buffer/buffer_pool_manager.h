@@ -30,7 +30,12 @@ namespace bustub {
 class BufferPoolManager;
 class ReadPageGuard;
 class WritePageGuard;
-
+template <typename A, typename B>
+class ThreadSafeMapWrapper;
+template <typename A>
+class ThreadSafeVectorWrapper;
+template <typename A>
+class ThreadSafeListWrapper;
 /**
  * @brief A helper class for `BufferPoolManager` that manages a frame of memory and related metadata.
  *
@@ -71,6 +76,7 @@ class FrameHeader {
 
   /** @brief The frame ID / index of the frame this header represents. */
   const frame_id_t frame_id_;
+  page_id_t page_id_;
 
   /** @brief The readers / writer latch for this frame. */
   std::shared_mutex rwlatch_;
@@ -104,7 +110,7 @@ class FrameHeader {
  * buffers in main memory to persistent storage. It also behaves as a cache, keeping frequently used pages in memory for
  * faster access, and evicting unused or cold pages back out to storage.
  *
- * Make sure you read the writeup in its entirety before attempting to implement the buffer pool manager. You also need
+ * Make sure you` read the writeup in its entirety before attempting to implement the buffer pool manager. You also need
  * to have completed the implementation of both the `LRUKReplacer` and `DiskManager` classes.
  */
 class BufferPoolManager {
@@ -121,11 +127,13 @@ class BufferPoolManager {
   auto CheckedReadPage(page_id_t page_id, AccessType access_type = AccessType::Unknown) -> std::optional<ReadPageGuard>;
   auto WritePage(page_id_t page_id, AccessType access_type = AccessType::Unknown) -> WritePageGuard;
   auto ReadPage(page_id_t page_id, AccessType access_type = AccessType::Unknown) -> ReadPageGuard;
-  auto FlushPage(page_id_t page_id) -> bool;
+  auto FlushPage(frame_id_t frame_id) -> bool;
   void FlushAllPages();
   auto GetPinCount(page_id_t page_id) -> std::optional<size_t>;
 
  private:
+  template <typename TypePageGuard>
+  auto NewPageGuard(page_id_t page_id, AccessType access_type) -> std::optional<TypePageGuard>;
   /** @brief The number of frames in the buffer pool. */
   const size_t num_frames_;
 
@@ -141,13 +149,11 @@ class BufferPoolManager {
 
   /** @brief The frame headers of the frames that this buffer pool manages. */
   std::vector<std::shared_ptr<FrameHeader>> frames_;
-
   /** @brief The page table that keeps track of the mapping between pages and buffer pool frames. */
   std::unordered_map<page_id_t, frame_id_t> page_table_;
 
   /** @brief A list of free frames that do not hold any page's data. */
   std::list<frame_id_t> free_frames_;
-
   /** @brief The replacer to find unpinned / candidate pages for eviction. */
   std::shared_ptr<LRUKReplacer> replacer_;
 
@@ -171,4 +177,5 @@ class BufferPoolManager {
    * pointer to a `FrameHeader` that already has a page's data stored inside of it, or an index to said `FrameHeader`.
    */
 };
+
 }  // namespace bustub
